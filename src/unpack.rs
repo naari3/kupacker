@@ -10,16 +10,19 @@ use nom::IResult;
 use std::io::Read;
 use std::path::Path;
 
+use std::fs::File;
+use std::io::Write;
+
 #[derive(Debug, PartialEq)]
-pub struct Kupack {
+struct Kupack {
     header: KupackHeader,
-    pub files: Vec<KupackFile>,
+    files: Vec<KupackFile>,
 }
 
 #[derive(Debug, PartialEq)]
-pub struct KupackFile {
-    pub name: String,
-    pub body: Vec<u8>,
+struct KupackFile {
+    name: String,
+    body: Vec<u8>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -42,14 +45,30 @@ enum Element {
     FileDetail(FileDetail),
 }
 
-pub fn read_file<P: AsRef<Path>>(file_path: P) -> Vec<u8> {
+pub fn unpack_cmd(file_path: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let data = read_file(file_path);
+    let (_, kupack) = kupack(&data).expect("Could not parse resource file");
+
+    for kfile in &kupack.files {
+        let file_path = format!("{}{}", "tmp/", kfile.name);
+        let mut file = File::create(&file_path)?;
+        let file_size = kfile.body.len();
+        file.write_all(&kfile.body)?;
+        file.flush()?;
+        println!("created: {}, filesize: {} byte", &file_path, file_size);
+    }
+
+    Ok(())
+}
+
+fn read_file<P: AsRef<Path>>(file_path: P) -> Vec<u8> {
     let mut file = std::fs::File::open(file_path).expect("file open failed");
     let mut buf = Vec::new();
     file.read_to_end(&mut buf).expect("file read failed");
     buf
 }
 
-pub fn kupack(input: &[u8]) -> IResult<&[u8], Kupack> {
+fn kupack(input: &[u8]) -> IResult<&[u8], Kupack> {
     let (input, kupack_header) = kupack_header(input)?;
     let mut input = input.clone();
     let mut offset = kupack_header.offset.clone();

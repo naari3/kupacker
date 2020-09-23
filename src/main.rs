@@ -1,10 +1,7 @@
 extern crate nom;
 
 mod unpack;
-use unpack::{read_file, kupack};
-
-use std::fs::File;
-use std::io::Write;
+use unpack::unpack_cmd;
 
 extern crate clap;
 use clap::{App, AppSettings, Arg, SubCommand};
@@ -32,17 +29,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     if let Some(matches) = matches.subcommand_matches("unpack") {
         if let Some(input) = matches.value_of("INPUT") {
-            let data = read_file(input);
-            let (_, kupack) = kupack(&data).expect("Could not parse resource file");
-        
-            for kfile in &kupack.files {
-                let file_path = format!("{}{}", "tmp/", kfile.name);
-                let mut file = File::create(&file_path)?;
-                let file_size = kfile.body.len();
-                file.write_all(&kfile.body)?;
-                file.flush()?;
-                println!("created: {}, filesize: {} byte", &file_path, file_size);
-            }
+            unpack_cmd(input)?
         }
     }
 
