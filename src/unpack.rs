@@ -10,7 +10,7 @@ use nom::IResult;
 use std::io::Read;
 use std::path::Path;
 
-use std::fs::File;
+use std::fs::{create_dir, File};
 use std::io::Write;
 
 #[derive(Debug, PartialEq)]
@@ -45,17 +45,25 @@ enum Element {
     FileDetail(FileDetail),
 }
 
-pub fn unpack_cmd(file_path: &str) -> Result<(), Box<dyn std::error::Error>> {
+pub fn unpack_cmd(file_path: &str, dest_path: &str) -> Result<(), Box<dyn std::error::Error>> {
     let data = read_file(file_path);
     let (_, kupack) = kupack(&data).expect("Could not parse resource file");
+    let dest = Path::new(dest_path);
+    if !dest.exists() {
+        create_dir(dest)?;
+    }
 
     for kfile in &kupack.files {
-        let file_path = format!("{}{}", "tmp/", kfile.name);
+        let file_path = dest.join(&kfile.name);
         let mut file = File::create(&file_path)?;
         let file_size = kfile.body.len();
         file.write_all(&kfile.body)?;
         file.flush()?;
-        println!("created: {}, filesize: {} byte", &file_path, file_size);
+        println!(
+            "created: {}, filesize: {} byte",
+            file_path.to_str().unwrap(),
+            file_size
+        );
     }
 
     Ok(())
